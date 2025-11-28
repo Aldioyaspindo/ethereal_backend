@@ -1,19 +1,16 @@
-// mongoose import
+// src/config/database.js
 import mongoose from "mongoose";
+import 'dotenv/config'; // Pastikan ini membaca file .env
 
-// import .env untuk membaca .env
-import 'dotenv/config';
-
-// function untuk menghubungkan database
 const connectDB = async() => {
-    // try untuk menangkap database pada .env
     try {
+        // 🔥 TAMBAHKAN INI UNTUK DEBUG
+        console.log("Mencoba koneksi ke URI:", process.env.MONGO_URI); 
+        
         await mongoose.connect(process.env.MONGO_URI);
         console.log("database connected and running");
     } catch (error) {
-        // tidakan jika rerjadi error
         console.error(error.message);
-        // keluar jika terjadi error
         process.exit();
     }
 };
