@@ -1,31 +1,31 @@
-// routes/catalogRoutes.js
+// portofolioRoute.js
 import express from "express";
 import multer from "multer";
 import path from "path";
-import catalogController from "../controllers/catalogController.js";
-import cloudinary from "../config/cloudinaryConfig.js"; // BARU: Import konfigurasi Cloudinary
-import CloudinaryStoragePkg from "multer-storage-cloudinary";
+// ❌ HAPUS: fileURLToPath dan __dirname tidak diperlukan lagi karena tidak menyimpan ke disk lokal
+// import { fileURLToPath } from "url";
+import portofolioController from "../controllers/portofolioController.js";
+
+// 🚀 BARU: Import Cloudinary Storage dan Config
+import CloudinaryStoragePkg from 'multer-storage-cloudinary';
 const CloudinaryStorage = CloudinaryStoragePkg.CloudinaryStorage || CloudinaryStoragePkg;
-const catalogRoutes = express.Router();
+import cloudinary from "../config/cloudinaryConfig.js";
 
-// ❌ HAPUS: Tidak perlu fs dan path lagi untuk penyimpanan disk lokal.
-// import path from "path";
-// import fs from "fs";
+// ❌ HAPUS: __filename, __dirname tidak diperlukan
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
-// ❌ HAPUS: Tidak perlu membuat folder 'uploads' secara lokal.
-// if (!fs.existsSync("uploads")) {
-//   fs.mkdirSync("uploads");
-//   console.log("📂 Folder 'uploads' dibuat otomatis.");
-// }
+console.log("=== ROUTE DEBUG ===");
+console.log("Cloudinary imported:", cloudinary);
+console.log("CloudinaryStorage:", CloudinaryStorage);
+console.log("=== END DEBUG ===");
 
-// ========================================
-// 🔄 KONFIGURASI MULTER DENGAN CLOUDINARY
-// ========================================
+const PortofolioRouter = express.Router();
 
 console.log("🔍 Checking cloudinary before storage:", {
   hasV2: !!cloudinary.v2,
   hasUploader: !!cloudinary.v2?.uploader,
-  config: cloudinary.v2?.config(),
+  config: cloudinary.v2?.config()
 });
 
 // ✅ Konfigurasi storage dengan error handling
@@ -36,9 +36,7 @@ const storage = new CloudinaryStorage({
     return {
       folder: "portofolio_project",
       allowed_formats: ["jpeg", "jpg", "png", "gif", "webp"],
-      public_id: `portofolio-${Date.now()}-${
-        path.parse(file.originalname).name
-      }`,
+      public_id: `portofolio-${Date.now()}-${path.parse(file.originalname).name}`,
       tags: ["portofolio"],
       resource_type: "auto", // ✅ Tambahkan ini
     };
@@ -48,12 +46,12 @@ const storage = new CloudinaryStorage({
 // ✅ Tambahkan error handling
 storage._handleFile = function (req, file, cb) {
   console.log("🚀 Starting Cloudinary upload for:", file.originalname);
-
+  
   const uploadStream = cloudinary.v2.uploader.upload_stream(
     {
-      folder: "katalog_produk",
+      folder: "portofolio_project",
       allowed_formats: ["jpeg", "jpg", "png", "gif", "webp"],
-      public_id: `katalog-${Date.now()}-${path.parse(file.originalname).name}`,
+      public_id: `portofolio-${Date.now()}-${path.parse(file.originalname).name}`,
       resource_type: "auto",
     },
     (error, result) => {
@@ -74,9 +72,9 @@ storage._handleFile = function (req, file, cb) {
 
 const upload = multer({
   storage: storage,
-  limits: {
+  limits: { 
     fileSize: 5 * 1024 * 1024, // 5MB
-    files: 1,
+    files: 1
   },
   fileFilter: (req, file, cb) => {
     console.log("🔍 Multer fileFilter check:", file.originalname);
@@ -98,48 +96,33 @@ const upload = multer({
 // ✅ Wrapper untuk error handling
 const uploadMiddleware = (req, res, next) => {
   console.log("📥 Upload middleware started");
-
+  
   upload.single("gambar")(req, res, (err) => {
     if (err) {
       console.error("❌ Multer error:", err);
       return res.status(400).json({
         success: false,
-        message: err.message || "Error saat upload file",
+        message: err.message || "Error saat upload file"
       });
     }
     console.log("✅ Upload middleware completed");
     next();
   });
 };
-// ========================================
-//  ROUTES
-// ========================================
 
-catalogRoutes.get("/", catalogController.getAllCatalog);
-catalogRoutes.get("/:id", catalogController.getCatalogById);
-
-// 🚀 Tambahkan middleware upload di sini
-catalogRoutes.post(
-    "/", 
-    upload.single("productImage"), // ⬅️ UBAH NAMA FIELD DI SINI
-    catalogController.createCatalog
+// Field name untuk file di frontend HARUS 'gambar'
+PortofolioRouter.post(
+  "/",
+  upload.single("gambar"),
+  portofolioController.createPortofolio
 );
-catalogRoutes.patch(
+PortofolioRouter.get("/", portofolioController.getAllPortofolio);
+PortofolioRouter.get("/:id", portofolioController.getPortofolioById);
+PortofolioRouter.patch(
   "/:id",
-  upload.single("productImage"),
-  catalogController.updateCatalog
+  upload.single("gambar"),
+  portofolioController.updatePortofolio
 );
+PortofolioRouter.delete("/:id", portofolioController.deletePortofolio);
 
-catalogRoutes.delete("/:id", catalogController.deleteCatalog);
-
-// Error handler (tetap dipertahankan, karena masih menangani MulterError)
-catalogRoutes.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    return res.status(400).json({ success: false, message: err.message });
-  } else if (err) {
-    return res.status(400).json({ success: false, message: err.message });
-  }
-  next();
-});
-
-export default catalogRoutes;
+export default PortofolioRouter;

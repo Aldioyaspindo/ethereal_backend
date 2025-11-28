@@ -1,16 +1,23 @@
+// keranjangRoute.js
 import express from "express";
-import {
-  addToCart,
-  getCart,
-  removeFromCart,
-  clearCart,
-} from "../controllers/keranjangController.js";
+import KeranjangController from "../controllers/keranjangController.js";
+import { customerAuth } from "../middleware/customerAuth.js";
 
-const Cartrouter = express.Router();
+const keranjangrouter = express.Router();
 
-Cartrouter.post("/add", addToCart); // body: { sessionId, productId, quantity }
-Cartrouter.get("/:sessionId", getCart);
-Cartrouter.delete("/:sessionId/:productId", removeFromCart);
-Cartrouter.delete("/:sessionId", clearCart);
+// POST: Add to cart
+keranjangrouter.post("/add", customerAuth, KeranjangController.addToCart);
 
-export default Cartrouter;
+// GET: Get cart
+keranjangrouter.get("/", customerAuth, KeranjangController.getCart);
+
+// PUT: Update cart item quantity
+keranjangrouter.put("/update", customerAuth, KeranjangController.updateCartItem);
+
+
+// DELETE: Remove specific item
+keranjangrouter.delete("/item/:userId/:itemId", customerAuth, KeranjangController.removeCartItem);
+
+// keranjangrouter.get("/user/:userId", KeranjangController.getCartByUser);
+
+export default keranjangrouter;

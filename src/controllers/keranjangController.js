@@ -1,98 +1,292 @@
+import jwt from "jsonwebtoken";
 import Cart from "../models/keranjangModel.js";
 import Catalog from "../models/catalogModel.js";
 
+// Fungsi untuk ambil userId dari cookie
+const getUserIdFromCookie = (req) => {
+  const token = req.cookies.token;
 
-export const addToCart = async (req, res) => {
+  if (!token) {
+    console.log("User GUEST (tidak ada token)");
+    return null;
+  }
+
   try {
-    const { sessionId, productId, quantity } = req.body;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log(`✅ User terautentikasi: ${decoded.id}`);
+    return decoded.id;
+  } catch (error) {
+    console.error("❌ Token tidak valid:", error.message);
+    return null;
+  }
+};
 
-    if (!sessionId) return res.status(400).json({ message: "Session ID wajib dikirim." });
+const KeranjangController = {
+  addToCart: async (req, res) => {
+    try {
+      const { productId, quantity } = req.body;
 
-    const product = await Catalog.findById(productId);
-    if (!product) return res.status(404).json({ message: "Produk tidak ditemukan." });
+      // Ambil userId dari cookie (bukan dari session atau body)
+      const userId = getUserIdFromCookie(req);
 
-    let cart = await Cart.findOne({ sessionId, status: "active" });
+      // Validasi: User HARUS login untuk add to cart
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Silakan login terlebih dahulu untuk menambah ke keranjang",
+          requireAuth: true,
+        });
+      }
 
-    // Jika belum ada keranjang, buat baru
-    if (!cart) cart = new Cart({ sessionId, items: [] });
+      // Validasi product
+      const product = await Catalog.findById(productId);
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: "Produk tidak ditemukan",
+        });
+      }
 
-    // Cek apakah produk sudah ada di cart
-    const existingItem = cart.items.find(
-      (item) => item.product.toString() === productId
-    );
+      // Validasi harga
+      if (
+        typeof product.productPrice !== "number" ||
+        product.productPrice <= 0
+      ) {
+        console.error("Harga produk tidak valid:", product.productPrice);
+        return res.status(500).json({
+          success: false,
+          message: "Data produk tidak valid",
+        });
+      }
 
-    if (existingItem) {
-      existingItem.quantity += quantity || 1;
+      // Cari keranjang aktif milik user ini
+      let cart = await Cart.findOne({
+        userId,
+        status: "active",
+      });
+
+      // Buat keranjang baru jika belum ada
+      if (!cart) {
+        cart = new Cart({
+          userId,
+          items: [],
+          status: "active",
+        });
+      }
+
+      // Cek apakah produk sudah ada di keranjang
+      const existingItem = cart.items.find(
+        (item) => item.product.toString() === productId
+      );
+
+      const qtyToAdd = quantity || 1;
+
+      if (existingItem) {
+        existingItem.quantity += qtyToAdd;
+      } else {
+        cart.items.push({ product: productId, quantity: qtyToAdd });
+      }
+
+      // Hitung ulang total harga
+      await cart.populate("items.product");
+      cart.totalPrice = cart.items.reduce((total, item) => {
+        return total + item.product.productPrice * item.quantity;
+      }, 0);
+
+      await cart.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Produk berhasil ditambahkan ke keranjang",
+        cart,
+      });
+    } catch (err) {
+      console.error("Error add to cart:", err);
+      res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  },
+
+  async getCartByUser(req, res) {
+    try {
+      const { userId } = req.params;
+
+      const cart = await Cart.findOne({ userId, status: "active" }).populate(
+        "items.product"
+      );
+
+      if (!cart) {
+        return res.json({
+          cart: { items: [], totalPrice: 0 },
+        });
+      }
+
+      res.json({ cart });
+    } catch (err) {
+      console.log("❌ Error get cart by user:", err);
+      res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan server",
+      });
+    }
+  },
+
+  getCart: async (req, res) => {
+    try {
+      const userId = req.user._id;
+
+      const cart = await Cart.findOne({ userId, status: "active" }).populate(
+        "items.product"
+      );
+
+      if (!cart) {
+        return res.status(200).json({
+          success: true,
+          cart: { items: [], totalPrice: 0 },
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        cart,
+      });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        message: "Error mengambil keranjang",
+      });
+    }
+  },
+  // ✅ Update quantity
+ updateCartItem: async (req, res) => {
+  try {
+    const userId = getUserIdFromCookie(req);
+    const { itemId, quantity } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Silakan login terlebih dahulu",
+        requireAuth: true,
+      });
+    }
+
+    if (!itemId) {
+      return res.status(400).json({
+        success: false,
+        message: "Item ID harus disertakan",
+      });
+    }
+
+    const cart = await Cart.findOne({ userId, status: "active" });
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Keranjang tidak ditemukan",
+      });
+    }
+
+    const item = cart.items.id(itemId);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Item tidak ditemukan di keranjang",
+      });
+    }
+
+    // Update atau hapus jika quantity <= 0
+    if (quantity <= 0) {
+      item.remove();
     } else {
-      cart.items.push({ product: productId, quantity: quantity || 1 });
+      item.quantity = quantity;
     }
-
-    // Hitung total
-    let total = 0;
-    for (const item of cart.items) {
-      const prod = await Catalog.findById(item.product);
-      total += prod.productPrice * item.quantity;
-    }
-    cart.totalPrice = total;
-
-    await cart.save();
-    res.status(200).json({ message: "Produk ditambahkan ke keranjang.", cart });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-export const getCart = async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const cart = await Cart.findOne({ sessionId, status: "active" }).populate("items.product");
-
-    if (!cart) return res.status(404).json({ message: "Keranjang kosong." });
-    res.status(200).json(cart);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const removeFromCart = async (req, res) => {
-  try {
-    const { sessionId, productId } = req.params;
-    const cart = await Cart.findOne({ sessionId, status: "active" });
-    if (!cart) return res.status(404).json({ message: "Keranjang tidak ditemukan." });
-
-    cart.items = cart.items.filter(
-      (item) => item.product.toString() !== productId
-    );
 
     // Hitung ulang total
-    let total = 0;
-    for (const item of cart.items) {
-      const prod = await Catalog.findById(item.product);
-      total += prod.productPrice * item.quantity;
+    await cart.populate("items.product");
+
+    cart.totalPrice = cart.items.reduce((total, item) => {
+      return total + (item.product?.productPrice || 0) * item.quantity;
+    }, 0);
+
+    await cart.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Keranjang berhasil diperbarui",
+      cart,
+    });
+
+  } catch (err) {
+    console.error("❌ Error update cart:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan pada server",
+    });
+  }
+},
+
+
+  // ✅ Remove item from cart
+  removeCartItem: async (req, res) => {
+    try {
+      // Asumsi: userId sekarang diambil dari req.params karena Anda menggunakan Opsi 2
+      // Jika Anda menggunakan Opsi 2, pastikan Anda juga menangani IDOR di sini!
+      const { userId, itemId } = req.params; // Menggunakan Opsi 2 dari diskusi sebelumnya
+
+      // 1. Cek Login (Jika Anda belum menggunakan middleware customerAuth)
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Silakan login terlebih dahulu",
+          requireAuth: true,
+        });
+      }
+
+      const cart = await Cart.findOne({ userId, status: "active" });
+
+      if (!cart) {
+        return res.status(404).json({
+          success: false,
+          message: "Keranjang tidak ditemukan",
+        });
+      }
+
+      // 🛑 PERBAIKAN UTAMA: Menggunakan .pull() alih-alih .remove()
+      const itemToRemove = cart.items.id(itemId);
+
+      if (!itemToRemove) {
+        return res.status(404).json({
+          success: false,
+          message: "Item yang diminta tidak ditemukan di keranjang.",
+        });
+      }
+
+      cart.items.pull(itemToRemove); // Menggunakan metode Mongoose yang benar
+      // ----------------------------------------------------------------------
+
+      // Hitung ulang total
+      await cart.populate("items.product");
+      cart.totalPrice = cart.items.reduce((total, item) => {
+        return total + item.product.productPrice * item.quantity;
+      }, 0);
+
+      await cart.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Item berhasil dihapus dari keranjang",
+        cart,
+      });
+    } catch (err) {
+      console.error("❌ Error remove cart item:", err);
+      res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
     }
-    cart.totalPrice = total;
-
-    await cart.save();
-    res.status(200).json({ message: "Produk dihapus dari keranjang.", cart });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+  },
 };
 
-
-export const clearCart = async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const cart = await Cart.findOne({ sessionId, status: "active" });
-    if (!cart) return res.status(404).json({ message: "Keranjang tidak ditemukan." });
-
-    cart.items = [];
-    cart.totalPrice = 0;
-
-    await cart.save();
-    res.status(200).json({ message: "Keranjang dikosongkan.", cart });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+export default KeranjangController;

@@ -6,13 +6,10 @@ const articleSchema = new mongoose.Schema(
       type: String,
       required: [true, "Judul artikel wajib diisi."],
       trim: true,
-      minlength: [5, "Judul minimal 5 karakter."],
-      maxlength: [200, "Judul maksimal 200 karakter."],
     },
     IsiArtikel: {
       type: String,
       required: [true, "Isi artikel wajib diisi."],
-      minlength: [20, "Isi artikel minimal 20 karakter."],
     },
     ImageUrl: {
       type: String,

@@ -27,23 +27,22 @@ const catalogSchema = new mongoose.Schema(
       required: [true, "Deskripsi wajib diisi."],
       trim: true,
     },
-    productTotal: {
-      type: String,
+    // DISARANKAN: Ubah ke Number jika ini adalah jumlah stok
+    productTotal: { 
+      type: Number, // UBAH TIPE DATA
       required: [true, "Jumlah produk harus diisi. "],
-      trim: true,
+      min: [0, "Jumlah tidak boleh negatif."],
     },
     productImage: {
       type: String, 
       trim: true,
       default: null,
-      validate: {
-        validator: function (v) {
-          // hanya boleh path lokal seperti: uploads/nama_file.jpg
-          return !v || /^uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i.test(v);
-        },
-        message: (props) =>
-          `${props.value} bukan path gambar lokal yang valid (harus di dalam folder uploads).`,
-      },
+      // ❌ HAPUS VALIDATOR LAMA YANG MENGATUR PATH LOKAL
+      // Validator ini akan memblokir URL Cloudinary
+    },
+    imagePublicId: {
+      type: String,
+      trim: true,
     },
   },
   {
