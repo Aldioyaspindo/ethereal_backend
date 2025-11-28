@@ -4,7 +4,7 @@ import 'dotenv/config'; // Pastikan ini membaca file .env
 
 const connectDB = async() => {
     try {
-        // 🔥 TAMBAHKAN INI UNTUK DEBUG
+        //TAMBAHKAN INI UNTUK DEBUG
         console.log("Mencoba koneksi ke URI:", process.env.MONGO_URI); 
         
         await mongoose.connect(process.env.MONGO_URI);

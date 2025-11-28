@@ -2,33 +2,16 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
-// ❌ HAPUS: fileURLToPath dan __dirname tidak diperlukan lagi karena tidak menyimpan ke disk lokal
-// import { fileURLToPath } from "url";
 import portofolioController from "../controllers/portofolioController.js";
 
-// 🚀 BARU: Import Cloudinary Storage dan Config
+//BARU: Import Cloudinary Storage dan Config
 import CloudinaryStoragePkg from 'multer-storage-cloudinary';
 const CloudinaryStorage = CloudinaryStoragePkg.CloudinaryStorage || CloudinaryStoragePkg;
 import cloudinary from "../config/cloudinaryConfig.js";
 
-// ❌ HAPUS: __filename, __dirname tidak diperlukan
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
-console.log("=== ROUTE DEBUG ===");
-console.log("Cloudinary imported:", cloudinary);
-console.log("CloudinaryStorage:", CloudinaryStorage);
-console.log("=== END DEBUG ===");
-
 const PortofolioRouter = express.Router();
 
-console.log("🔍 Checking cloudinary before storage:", {
-  hasV2: !!cloudinary.v2,
-  hasUploader: !!cloudinary.v2?.uploader,
-  config: cloudinary.v2?.config()
-});
-
-// ✅ Konfigurasi storage dengan error handling
+// Konfigurasi storage dengan error handling
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {

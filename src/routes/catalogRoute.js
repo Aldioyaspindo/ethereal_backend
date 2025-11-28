@@ -8,25 +8,9 @@ import CloudinaryStoragePkg from "multer-storage-cloudinary";
 const CloudinaryStorage = CloudinaryStoragePkg.CloudinaryStorage || CloudinaryStoragePkg;
 const catalogRoutes = express.Router();
 
-// ❌ HAPUS: Tidak perlu fs dan path lagi untuk penyimpanan disk lokal.
-// import path from "path";
-// import fs from "fs";
-
-// ❌ HAPUS: Tidak perlu membuat folder 'uploads' secara lokal.
-// if (!fs.existsSync("uploads")) {
-//   fs.mkdirSync("uploads");
-//   console.log("📂 Folder 'uploads' dibuat otomatis.");
-// }
-
 // ========================================
-// 🔄 KONFIGURASI MULTER DENGAN CLOUDINARY
+//KONFIGURASI MULTER DENGAN CLOUDINARY
 // ========================================
-
-console.log("🔍 Checking cloudinary before storage:", {
-  hasV2: !!cloudinary.v2,
-  hasUploader: !!cloudinary.v2?.uploader,
-  config: cloudinary.v2?.config(),
-});
 
 // ✅ Konfigurasi storage dengan error handling
 const storage = new CloudinaryStorage({

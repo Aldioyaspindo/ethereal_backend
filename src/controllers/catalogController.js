@@ -6,10 +6,6 @@ const catalogController = {
   // CREATE
   async createCatalog(req, res) {
     try {
-      console.log("=== CREATE CATALOG DEBUG ===");
-      console.log("📥 req.body:", req.body);
-      console.log("📁 req.file:", req.file);
-
       const {
         productName,
         productPrice,
@@ -27,14 +23,11 @@ const catalogController = {
         });
       }
 
-      // ✅ Ambil URL dan Public ID dari Cloudinary
+      // Ambil URL dan Public ID dari Cloudinary
       const productImageURL = req.file
         ? req.file.path
         : req.body.productImage || null;
       const imagePublicId = req.file ? req.file.filename : null;
-
-      console.log("✅ Cloudinary URL:", productImageURL);
-      console.log("✅ Cloudinary Public ID:", imagePublicId);
 
       const newCatalog = new Catalog({
         productName,
@@ -49,7 +42,7 @@ const catalogController = {
 
       await newCatalog.save();
 
-      console.log("✅ Catalog berhasil dibuat:", newCatalog);
+      console.log("Catalog berhasil dibuat:", newCatalog);
 
       res.status(201).json({
         success: true,
@@ -112,11 +105,6 @@ const catalogController = {
   // UPDATE
   async updateCatalog(req, res) {
     try {
-      console.log("=== UPDATE CATALOG DEBUG ===");
-      console.log("📥 req.params.id:", req.params.id);
-      console.log("📥 req.body:", req.body);
-      console.log("📁 req.file:", req.file);
-
       const catalog = await Catalog.findById(req.params.id);
       
       if (!catalog) {
@@ -136,15 +124,15 @@ const catalogController = {
 
       const updateData = { ...req.body };
 
-      // ✅ Jika ada file baru diupload
+      // Jika ada file baru diupload
       if (req.file) {
         // 1. Hapus gambar lama dari Cloudinary
         if (catalog.imagePublicId) {
           try {
             await cloudinary.v2.uploader.destroy(catalog.imagePublicId);
-            console.log("🗑️ Gambar lama dihapus dari Cloudinary:", catalog.imagePublicId);
+            console.log("Gambar lama dihapus dari Cloudinary:", catalog.imagePublicId);
           } catch (deleteError) {
-            console.error("⚠️ Gagal hapus gambar lama:", deleteError.message);
+            console.error("Gagal hapus gambar lama:", deleteError.message);
             // Lanjutkan meskipun gagal hapus file lama
           }
         }
@@ -153,8 +141,6 @@ const catalogController = {
         updateData.productImage = req.file.path; // URL Cloudinary baru
         updateData.imagePublicId = req.file.filename; // Public ID baru
 
-        console.log("✅ Gambar baru:", updateData.productImage);
-        console.log("✅ Public ID baru:", updateData.imagePublicId);
       }
 
       const updatedCatalog = await Catalog.findByIdAndUpdate(
@@ -163,7 +149,7 @@ const catalogController = {
         { new: true, runValidators: true }
       );
 
-      console.log("✅ Update berhasil:", updatedCatalog);
+      console.log("Update berhasil:", updatedCatalog);
 
       res.status(200).json({
         success: true,
@@ -182,8 +168,6 @@ const catalogController = {
   // DELETE
   async deleteCatalog(req, res) {
     try {
-      console.log("=== DELETE CATALOG DEBUG ===");
-      console.log("📥 req.params.id:", req.params.id);
 
       const catalog = await Catalog.findById(req.params.id);
 
@@ -194,7 +178,7 @@ const catalogController = {
         });
       }
 
-      // ✅ Hapus gambar dari Cloudinary jika ada Public ID
+      // Hapus gambar dari Cloudinary jika ada Public ID
       if (catalog.imagePublicId) {
         try {
           await cloudinary.v2.uploader.destroy(catalog.imagePublicId);
@@ -207,8 +191,6 @@ const catalogController = {
 
       // Hapus dari database
       await Catalog.findByIdAndDelete(req.params.id);
-
-      console.log("✅ Delete berhasil");
 
       res.status(200).json({
         success: true,

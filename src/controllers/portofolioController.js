@@ -4,9 +4,6 @@ import cloudinary from "../config/cloudinaryConfig.js";
 const portofolioController = {
   createPortofolio: async (req, res) => {
     try {
-      console.log("=== CREATE PORTOFOLIO DEBUG ===");
-      console.log("📥 req.body:", req.body);
-      console.log("📁 req.file:", req.file);
 
       const { keterangan } = req.body;
 
@@ -30,9 +27,6 @@ const portofolioController = {
       const imageUrl = req.file.path; // URL publik Cloudinary
       const imagePublicId = req.file.filename; // Public ID Cloudinary
 
-      console.log("✅ Cloudinary URL:", imageUrl);
-      console.log("✅ Cloudinary Public ID:", imagePublicId);
-
       // Simpan ke database
       const newPortofolio = await Portofolio.create({
         keterangan: keterangan.trim(),
@@ -40,7 +34,7 @@ const portofolioController = {
         gambarPublicId: imagePublicId,
       });
 
-      console.log("✅ Portofolio berhasil dibuat:", newPortofolio);
+      console.log("Portofolio berhasil dibuat:", newPortofolio);
 
       return res.status(201).json({
         success: true,
@@ -104,11 +98,6 @@ const portofolioController = {
 
   updatePortofolio: async (req, res) => {
     try {
-      console.log("=== UPDATE PORTOFOLIO DEBUG ===");
-      console.log("📥 req.params.id:", req.params.id);
-      console.log("📥 req.body:", req.body);
-      console.log("📁 req.file:", req.file);
-
       const { id } = req.params;
       const { keterangan } = req.body;
 
@@ -136,7 +125,7 @@ const portofolioController = {
         // 1. Hapus file lama dari Cloudinary
         if (oldPortofolio.gambarPublicId) {
           try {
-            // ✅ PERBAIKAN: Gunakan v2.uploader.destroy
+            // PERBAIKAN: Gunakan v2.uploader.destroy
             await cloudinary.v2.uploader.destroy(oldPortofolio.gambarPublicId);
             console.log("🗑️ File lama dihapus dari Cloudinary:", oldPortofolio.gambarPublicId);
           } catch (deleteError) {
@@ -148,9 +137,6 @@ const portofolioController = {
         // 2. Set data gambar baru
         updateData.gambar = req.file.path;
         updateData.gambarPublicId = req.file.filename;
-        
-        console.log("✅ Gambar baru:", updateData.gambar);
-        console.log("✅ Public ID baru:", updateData.gambarPublicId);
       }
 
       const updated = await Portofolio.findByIdAndUpdate(id, updateData, {
@@ -176,9 +162,6 @@ const portofolioController = {
 
   deletePortofolio: async (req, res) => {
     try {
-      console.log("=== DELETE PORTOFOLIO DEBUG ===");
-      console.log("📥 req.params.id:", req.params.id);
-
       const { id } = req.params;
       const portofolio = await Portofolio.findById(id);
 
