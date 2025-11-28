@@ -41,7 +41,6 @@ app.use("/uploads", express.static(uploadsPath));
 
 // 1. Cookie Parser HARUS PALING ATAS
 app.use(cookieParser());
-console.log("Cookie parser loaded");
 
 // 2. CORS Configuration (HANYA 1 KALI!)
 app.use(
@@ -55,26 +54,17 @@ app.use(
     optionsSuccessStatus: 204,
   })
 );
-console.log(" CORS configured with credentials");
 
 //  3. Body Parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 //  4. Morgan Logger (development only)
-if (process.env.NODE_ENV === "development") {
+if (process.env.NODE_ENV === "production") {
   app.use(morgan("dev"));
 }
 
-//  5. Debug Middleware (untuk troubleshooting)
-if (process.env.NODE_ENV === "development") {
-  app.use((req, res, next) => {
-    console.log("📥 Request:", req.method, req.path);
-    console.log("🍪 Cookies:", req.cookies);
-    console.log("🌐 Origin:", req.headers.origin);
-    next();
-  });
-}
+//  5. Debug Middleware (untuk troubleshooting
 
 // ========================================
 // ROUTES
@@ -123,8 +113,6 @@ app.listen(PORT, () => {
   console.log(
     `🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
   );
-  console.log(`📝 Frontend URL: http://localhost:3000`);
-  console.log(`📝 Backend URL: http://localhost:${PORT}`);
 });
 
 export default app;
