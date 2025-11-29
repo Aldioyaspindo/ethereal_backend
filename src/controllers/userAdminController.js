@@ -22,12 +22,8 @@ const userAdminController = {
   },
 
   // Register
-  // src/controllers/userAdminController.js (Revisi Register)
-
-  // Register
   register: async (req, res) => {
     const { username, password, role } = req.body;
-    const maxAgeMs = 24 * 60 * 60 * 1000; // 1 hari
 
     if (!username || !password) {
       return res
@@ -47,29 +43,14 @@ const userAdminController = {
       const newUser = new UserAdmin({
         username: username.toLowerCase().trim(),
         password: password.trim(),
-        role: role || "admin", // Default role disetel ke "admin"
+        role: role || "admin",
       });
 
-      await newUser.save(); // === 1. BUAT TOKEN JWT ===
-
-      // const token = jwt.sign(
-      //   { id: newUser._id, role: newUser.role },
-      //   process.env.JWT_SECRET,
-      //   { expiresIn: "1d" }
-      // ); // === 2. SETEL COOKIE OTENTIKASI ===
-
-      // // Gunakan pengaturan yang konsisten untuk lingkungan development/production
-      // res.cookie("adminToken", token, {
-      //   httpOnly: true, // Set secure: false untuk HTTP (localhost) agar cookie tidak ditolak browser
-      //   secure: process.env.NODE_ENV === "production", // Gunakan 'Lax' atau biarkan default untuk localhost, hindari 'None' di HTTP
-      //   sameSite: "Lax",
-      //   path: "/",
-      //   maxAge: maxAgeMs,
-      // });
+      await newUser.save();
 
       res.status(201).json({
         success: true,
-        message: "User berhasil didaftarkan dan sesi login dibuat",
+        message: "User berhasil didaftarkan",
         data: {
           _id: newUser._id,
           username: newUser.username,
@@ -77,11 +58,7 @@ const userAdminController = {
         },
       });
     } catch (error) {
-      console.error(
-        "SERVER 500 ERROR IN REGISTER:",
-        error.message,
-        error.stack
-      );
+      console.error("SERVER 500 ERROR IN REGISTER:", error.message, error.stack);
       res.status(500).json({
         success: false,
         message: "Server error saat registrasi",
@@ -90,9 +67,12 @@ const userAdminController = {
     }
   },
 
-  // Login
+  // ✅ Login - FIXED untuk Production
   login: async (req, res) => {
     const { username, password } = req.body;
+
+    console.log("📥 Admin login attempt:", { username });
+    console.log("🌍 Environment:", process.env.NODE_ENV);
 
     if (!username || !password) {
       return res
@@ -104,34 +84,60 @@ const userAdminController = {
       const user = await UserAdmin.findOne({
         username: username.toLowerCase().trim(),
       });
-      console.log("DEBUG USER:", user);
+
       if (!user) {
+        console.log("❌ Admin not found:", username);
         return res.status(400).json({ message: "User tidak ditemukan." });
       }
 
       const valid = await user.comparePassword(password);
       if (!valid) {
+        console.log("❌ Password incorrect");
         return res.status(400).json({ message: "Password salah." });
       }
 
-      // proses pembuatan token
+      // ✅ Buat JWT token
       const token = jwt.sign(
         { id: user._id, role: "admin" },
         process.env.JWT_SECRET,
         { expiresIn: "1d" }
       );
 
-      res
-        .cookie("adminToken", token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 24 * 60 * 60 * 1000,
-        })
-        .status(200)
-        .json({ message: "Admin login success" });
+      console.log("🔑 Admin token generated successfully");
+      console.log("🔑 Token preview:", token.substring(0, 30) + "...");
+
+      // ✅ PERBAIKAN: Cookie configuration untuk production
+      const isProduction = process.env.NODE_ENV === "production";
+      
+      const cookieOptions = {
+        httpOnly: true,
+        secure: isProduction, // true di production (HTTPS)
+        sameSite: isProduction ? "none" : "lax", // 🔥 PENTING untuk cross-domain
+        path: "/",
+        maxAge: 24 * 60 * 60 * 1000, // 1 hari
+      };
+
+      console.log("🍪 Admin cookie options:", cookieOptions);
+
+      res.cookie("adminToken", token, cookieOptions);
+
+      console.log("✅ Admin cookie set successfully");
+
+      // ✅ Response dengan token di body juga (fallback)
+      res.status(200).json({ 
+        success: true,
+        message: "Admin login success",
+        token: token, // ✅ Kirim token sebagai fallback
+        user: {
+          id: user._id,
+          username: user.username,
+          role: user.role,
+        }
+      });
+
+      console.log("✅ Admin login successful for:", username);
     } catch (error) {
+      console.error("❌ Admin login error:", error);
       res.status(500).json({
         success: false,
         message: "Server error saat login",
@@ -142,11 +148,9 @@ const userAdminController = {
 
   userDelete: async (req, res) => {
     try {
-      
-      const { id } = req.params; // ID dari user yang akan dihapus
-      // Ambil ID Admin yang sedang login dari req.user (disediakan oleh middleware adminAuth)
+      const { id } = req.params;
       const currentAdminId = req.user._id.toString();
-      // PERBAIKAN: Cek apakah Admin sedang mencoba menghapus ID-nya sendiri
+
       if (id === currentAdminId) {
         return res.status(400).json({
           success: false,
@@ -155,7 +159,6 @@ const userAdminController = {
         });
       }
 
-      // Jika ID berbeda, lanjutkan proses penghapusan
       const user = await UserAdmin.findByIdAndDelete(id);
 
       if (!user) {
@@ -177,7 +180,6 @@ const userAdminController = {
     }
   },
 
-  // --- Fungsi deleteCustomer tidak memerlukan perbaikan untuk kasus self-deletion ---
   deleteCustomer: async (req, res) => {
     try {
       const { id } = req.params;
@@ -205,20 +207,20 @@ const userAdminController = {
       });
     }
   },
-  // mengambil semua data customer
+
   getAllCustomer: async (req, res) => {
     try {
       const customer = await UserCustomer.find();
       res.status(200).json({
         success: true,
-        message: "Berhasil Mengambil senua data user Customer",
+        message: "Berhasil Mengambil semua data user Customer",
         data: customer,
       });
     } catch (error) {
       console.error("error Get all", error.message);
       res.status(500).json({
         success: false,
-        message: "Gagal Mengambil senua data user Customer",
+        message: "Gagal Mengambil semua data user Customer",
         error: error.message,
       });
     }

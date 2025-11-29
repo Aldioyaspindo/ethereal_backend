@@ -56,7 +56,8 @@ const UserCustomerController = {
 loginCustomer: async (req, res) => {
   const { username, password } = req.body;
 
-  console.log("📥 Login attempt:", { username });
+  console.log("📥 Customer login attempt:", { username });
+  console.log("🌍 Environment:", process.env.NODE_ENV);
 
   if (!username || !password) {
     return res.status(400).json({
@@ -66,7 +67,6 @@ loginCustomer: async (req, res) => {
   }
 
   try {
-    // 1. Cari user
     const customer = await UserCustomer.findOne({
       username: username.trim().toLowerCase(),
     });
@@ -79,7 +79,6 @@ loginCustomer: async (req, res) => {
       });
     }
 
-    // 2. Validasi password
     const isMatch = await customer.comparePassword(password.trim());
     if (!isMatch) {
       console.log("❌ Password incorrect");
@@ -89,7 +88,6 @@ loginCustomer: async (req, res) => {
       });
     }
 
-    // 3. Buat JWT token
     const payload = {
       id: customer._id,
       username: customer.username,
@@ -102,27 +100,27 @@ loginCustomer: async (req, res) => {
 
     console.log("🔑 Token generated:", token.substring(0, 30) + "...");
 
-    // 4. Set cookie
-    res.cookie("token", token, {
+    // ✅ PERBAIKAN: Cookie config untuk production
+    const isProduction = process.env.NODE_ENV === "production";
+    
+    const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax", // 🔥 INI YANG PENTING!
       path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
-    });
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    res.cookie("token", token, cookieOptions);
 
     console.log("✅ Cookie set successfully");
-    console.log("📋 Cookie config:", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-    });
+    console.log("📋 Cookie config:", cookieOptions);
 
-    // 5. Response
+    // ✅ TAMBAHAN: Kirim token di response body juga (fallback)
     res.status(200).json({
       success: true,
       message: "Login berhasil",
+      token: token, // ✅ Tambahkan ini untuk fallback
       user: {
         id: customer._id,
         username: customer.username,
